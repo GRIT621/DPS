@@ -38,12 +38,12 @@ import warnings
 warnings.filterwarnings('ignore')
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--name', default='MPL1000NN-bt32-len64-lr0.0005',type=str,help='experiment name')
+parser.add_argument('--name', default='changelen',type=str,help='experiment name')
 parser.add_argument('--data-path', default='./data', type=str, help='data path')
-parser.add_argument('--save-path', default='./checkpoint2', type=str, help='save path')
+parser.add_argument('--save-path', default='./checkpoint', type=str, help='save path')
 parser.add_argument('--dataset', default='AGNews', type=str,
                     choices=['base'], help='dataset name')
-parser.add_argument('--num_labeled', type=int, default=1000, help='number of labeled data')
+parser.add_argument('--num-labeled', type=int, default=100, help='number of labeled data')
 parser.add_argument("--expand-labels", action="store_true", help="expand labels to fit eval steps")
 parser.add_argument('--total-steps', default=30000, type=int, help='number of total steps to run')
 parser.add_argument('--eval-step', default=100, type=int, help='number of eval steps to run')
@@ -55,8 +55,8 @@ parser.add_argument('--resize', default=32, type=int, help='resize image')
 parser.add_argument('--batch-size', default=32, type=int, help='train batch size')
 parser.add_argument('--teacher-dropout', default=0, type=float, help='dropout on last dense layer')
 parser.add_argument('--student-dropout', default=0, type=float, help='dropout on last dense layer')
-parser.add_argument('--teacher_lr', default=0.0005, type=float, help='train learning late')
-parser.add_argument('--student_lr', default=0.0005, type=float, help='train learning late')
+parser.add_argument('--teacher_lr', default=0.0001, type=float, help='train learning late')
+parser.add_argument('--student_lr', default=0.0001, type=float, help='train learning late')
 parser.add_argument('--momentum', default=0.9, type=float, help='SGD Momentum')
 parser.add_argument('--nesterov', action='store_true', help='use nesterov')
 parser.add_argument('--weight-decay', default=0, type=float, help='train weight decay')
@@ -85,11 +85,11 @@ parser.add_argument("--amp", action="store_true", help="use 16-bit (mixed) preci
 parser.add_argument('--world-size', default= -1, type=int,
                     help='number of nodes for distributed training')
 parser.add_argument("--local_rank", type=int, default= -1,
-                    help="For distributed training: clocal_rank")
+                    help="For distributed training: local_rank")
 parser.add_argument('--max_len', default=64, type=int, help='text_len')
 parser.add_argument('--model', default='bert',type=str,help='model name')
 parser.add_argument('--mode', default='train',type=str,help='mode name')
-parser.add_argument("--gpu", type=int, default= 0,
+parser.add_argument("--gpu", type=int, default= 1,
                     help="gpu")
 
 
@@ -580,7 +580,7 @@ def main():
     logger.info(dict(args._get_kwargs()))
 
     if args.local_rank in [-1, 0]:
-        args.writer = SummaryWriter(f"results2/{args.name}")
+        args.writer = SummaryWriter(f"results/{args.name}")
         # wandb.init(name=args.name, project='MPL', config=args)
 
     if args.seed is not None:
@@ -641,7 +641,7 @@ def main():
         torch.distributed.barrier()
 
     # logger.info(f"Model: WideResNet {depth}x{widen_factor}")
-    # logger.info(f"Params: {sum(p.numel() for p in teacher_model. ters())/1e6:.2f}M")
+    # logger.info(f"Params: {sum(p.numel() for p in teacher_model.parameters())/1e6:.2f}M")
 
     teacher_model.to(args.device)
     student_model.to(args.device)
@@ -665,7 +665,6 @@ def main():
             nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
 
-   #optimizer = optim.Adam([{'params':model.encoder.parameters()},{'params':model.fc.parameters(),'lr':0.001}], lr=learning_rate, weight_decay=weight_decay)
     t_optimizer = optim.SGD(teacher_parameters,
                             lr=args.teacher_lr,
                             momentum=args.momentum,
@@ -676,17 +675,6 @@ def main():
                             momentum=args.momentum,
                             # weight_decay=args.weight_decay,
                             nesterov=args.nesterov)
-    #不同学习率
-    # t_optimizer = optim.SGD([{'params':teacher_model.encoder.parameters()},{'params':teacher_model.fc.parameters(),'lr':0.001}],
-    #                         lr=args.teacher_lr,
-    #                         momentum=args.momentum,
-    #                         # weight_decay=args.weight_decay,
-    #                         nesterov=args.nesterov)
-    # s_optimizer = optim.SGD([{'params':student_model.encoder.parameters()},{'params':student_model.fc.parameters(),'lr':0.001}],
-    #                         lr=args.student_lr,
-    #                         momentum=args.momentum,
-    #                         # weight_decay=args.weight_decay,
-    #                         nesterov=args.nesterov)
 
     t_scheduler = get_cosine_schedule_with_warmup(t_optimizer,
                                                   args.warmup_steps,
@@ -759,9 +747,6 @@ def main():
     train_loop(args, labeled_loader, unlabeled_loader, test_loader,dev_loader,
                teacher_model, student_model, avg_student_model, criterion,
                t_optimizer, s_optimizer, t_scheduler, s_scheduler, t_scaler, s_scaler)
-    report, confusion, mif1, maf1 = inference_fn(args, student_model, dev_loader)
-    print(report, confusion, mif1, maf1)
-
     return
 
 

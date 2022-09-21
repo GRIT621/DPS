@@ -22,27 +22,27 @@ weight_decay = 1e-5
 epochs = 50
 EARLY_STOP = True
 EARLY_STOPPING_STEPS = 5
-device = torch.device('cuda', 0)
-encoder = BertModel.from_pretrained(
-    'bert-base-cased', num_labels=4).to(device)
+
+
 
 class Model(nn.Module):
     def __init__(self,args,drop=0.7):
         super().__init__()
-        self.encoder = encoder
+        self.encoder = BertModel.from_pretrained('bert-base-cased', num_labels=4).to(args.gpu)
 
-        self.embedding_size = encoder.pooler.dense.out_features #bert-base
+        self.embedding_size = self.encoder.pooler.dense.out_features #bert-base
 #         self.embedding_size = encoder.pooler.out_features #albert
         self.fc = nn.Linear(self.embedding_size, args.num_classes)
-        self.dropout = nn.Dropout(drop)
+        # self.dropout = nn.Dropout(drop,training =False)
 #         self.sig = nn.Sigmoid()
     def forward(self, x):
-        x = encoder(input_ids=x[:, 0, :], attention_mask=x[:,1, :])[0]
+
+        x = self.encoder(input_ids=x[:, 0, :], attention_mask=x[:,1, :])[0]
         #print(x.size())
 #         x = self.gru(x)
 
         x = x.mean(1)
-        x = self.dropout(x)
+        # x = self.dropout(x)
         #x = attention_module(x)
         x = self.fc(x)
         return x

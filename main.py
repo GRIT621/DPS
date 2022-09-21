@@ -33,7 +33,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--name', default='Yelp',type=str,help='experiment name')
+parser.add_argument('--name', default='AGNews',type=str,help='experiment name')
 parser.add_argument('--data-path', default='./data', type=str, help='data path')
 parser.add_argument('--save-path', default='./checkpoint', type=str, help='save path')
 parser.add_argument('--dataset', default='AGNews', type=str,
@@ -183,14 +183,9 @@ def train_loop(args, labeled_loader, unlabeled_loader,dev_loader,
             batch_size = texts_l.shape[0]
 
             t_texts = torch.cat((texts_l, texts_uw, texts_us))
-
             t_logits = teacher_model(t_texts)
-
             t_logits_l = t_logits[:batch_size]
             t_logits_uw, t_logits_us = t_logits[batch_size:].chunk(2)
-
-            #del t_logits
-
             t_loss_l = criterion(t_logits_l, targets)
 
             soft_pseudo_label = torch.softmax(t_logits_uw.detach()/args.temperature, dim=-1)
@@ -201,8 +196,6 @@ def train_loop(args, labeled_loader, unlabeled_loader,dev_loader,
             )
 
             weight_u = args.lambda_u * min(1., (step+1) / args.uda_steps)
-
-            #
 
             ts_loss_uda = t_loss_l + weight_u * t_loss_u#t_loss_uda
             s_texts = torch.cat((texts_l, texts_us))
